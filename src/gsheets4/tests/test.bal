@@ -416,27 +416,27 @@ function testDeleteRows() {
     }
 }
 
-//@test:Config {
-//    dependsOn: ["testDeleteRows"]
-//}
-//function testCopyTo() {
-//    var copyToSpreadsheet = spreadsheetClient->createSpreadsheet(copyToSpreadsheet);
-//    if (copyToSpreadsheet is Spreadsheet) {
-//        var spreadsheetRes = spreadsheetClient->openSpreadsheetById(spreadsheetId);
-//        if (spreadsheetRes is Spreadsheet) {
-//            Sheet[] | error sheets = spreadsheetRes.getSheets();
-//            if (sheets is Sheet[]) {
-//                Sheet sheet = sheets[0];
-//                var res = sheet->copyTo(<@untainted>copyToSpreadsheet);
-//                test:assertEquals(res, (), msg = "Failed to copy the spreadsheet");
-//            }
-//        } else {
-//            test:assertFail(msg = <string>spreadsheetRes.detail()["message"]);
-//        }
-//    } else {
-//        test:assertFail(msg = <string>copyToSpreadsheet.detail()["message"]);
-//    }
-//}
+@test:Config {
+    dependsOn: ["testDeleteRows"]
+}
+function testCopyTo() {
+    var copyToSpreadsheet = spreadsheetClient->createSpreadsheet(copyToSpreadsheet);
+    if (copyToSpreadsheet is Spreadsheet) {
+        var spreadsheetRes = spreadsheetClient->openSpreadsheetById(spreadsheetId);
+        if (spreadsheetRes is Spreadsheet) {
+            Sheet[] | error sheets = spreadsheetRes.getSheets();
+            if (sheets is Sheet[]) {
+                Sheet sheet = sheets[0];
+                var res = sheet->copyTo(<@untainted>copyToSpreadsheet);
+                test:assertEquals(res, (), msg = "Failed to copy the spreadsheet");
+            }
+        } else {
+            test:assertFail(msg = <string>spreadsheetRes.detail()["message"]);
+        }
+    } else {
+        test:assertFail(msg = <string>copyToSpreadsheet.detail()["message"]);
+    }
+}
 
 //@test:Config {
 //    dependsOn: ["testGetCell"]
