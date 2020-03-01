@@ -63,7 +63,7 @@ public type Spreadsheet client object {
     # + return - Sheet object on success and error on failure
     public function getSheetByName(string sheetName) returns Sheet | error {
         Sheet[] sheets = self.sheets;
-        error err = error(SPREADSHEET_ERROR_CODE, message = "No sheet found");
+        error err = error(SPREADSHEET_ERROR_CODE, message = "Sheet not found");
         if (sheets.length() == 0) {
             return err;
         } else {
@@ -82,39 +82,25 @@ public type Spreadsheet client object {
     #               If the title is empty, then sheet will be created with the default name.
     # + return - Sheet object on success and error on failure
     public remote function addSheet(string sheetName) returns @tainted Sheet | error {
-        http:Request request = new;
-        map<json> sheetJSONPayload = {"requests": [{"addSheet": {"properties": {}}}]};
+        map<json> payload = {"requests": [{"addSheet": {"properties": {}}}]};
         map<json> jsonSheetProperties = {};
         if (sheetName != EMPTY_STRING) {
             jsonSheetProperties["title"] = sheetName;
         }
-        json[] requestsElement = <json[]>sheetJSONPayload["requests"];
+        json[] requestsElement = <json[]>payload["requests"];
         map<json> firstRequestsElement = <map<json>>requestsElement[0];
         map<json> sheetElement = <map<json>>firstRequestsElement.addSheet;
         sheetElement["properties"] = jsonSheetProperties;
-        request.setJsonPayload(sheetJSONPayload);
         string addSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.spreadsheetId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(addSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                if (statusCode == http:STATUS_OK) {
-                    json[] replies = <json[]>jsonResponse.replies;
-                    json | error addSheet = replies[0].addSheet;
-                    Sheet newSheet = convertToSheet(!(addSheet is error) ? addSheet : {}, self.spreadsheetClient,
-                    self.spreadsheetId);
-                    return newSheet;
-                } else {
-                    return setResponseError(jsonResponse);
-                }
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        json | error response = sendRequestWithPayload(self.httpClient, addSheetPath, payload);
+        if (response is error) {
+            return response;
         } else {
-            return createConnectorError(httpResponse);
+            json[] replies = <json[]>response.replies;
+            json | error addSheet = replies[0].addSheet;
+            Sheet newSheet = convertToSheet(!(addSheet is error) ? addSheet : {}, self.spreadsheetClient,
+            self.spreadsheetId);
+            return newSheet;
         }
     }
 
@@ -123,23 +109,13 @@ public type Spreadsheet client object {
     # + sheetId - The ID of the sheet to delete
     # + return - Boolean value true on success and error on failure
     public remote function removeSheet(int sheetId) returns @tainted error? {
-        http:Request request = new;
-        json sheetJSONPayload = {"requests": [{"deleteSheet": {"sheetId": sheetId}}]};
-        request.setJsonPayload(sheetJSONPayload);
+        json payload = {"requests": [{"deleteSheet": {"sheetId": sheetId}}]};
         string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.spreadsheetId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return setResponse(jsonResponse, statusCode);
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        json | error response = sendRequestWithPayload(self.httpClient, deleteSheetPath, payload);
+        if (response is error) {
+            return response;
         } else {
-            return createConnectorError(httpResponse);
+            return;
         }
     }
 
@@ -147,33 +123,24 @@ public type Spreadsheet client object {
     #
     # + name - New name for the Spreadsheet
     # + return - Nil on success, else returns an error
-    public remote function rename(string name) returns error? {
-        http:Request request = new;
-        json sheetJSONPayload = {
-            "requests": [{
-                "updateSpreadsheetProperties": {
-                    "properties": {"title": name},
-                    "fields": "title"
+    public remote function rename(string name) returns @tainted error? {
+        json payload = {
+            "requests": [
+                {
+                    "updateSpreadsheetProperties": {
+                        "properties": {"title": name},
+                        "fields": "title"
+                    }
                 }
-            }]
+            ]
         };
-        request.setJsonPayload(sheetJSONPayload);
         string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.spreadsheetId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                //return setResponse(jsonResponse, statusCode);
-                self.properties.title = name;
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        json | error response = sendRequestWithPayload(self.httpClient, deleteSheetPath, payload);
+        if (response is error) {
+            return response;
         } else {
-            return createConnectorError(httpResponse);
+            self.properties.title = name;
+            return;
         }
     }
 };

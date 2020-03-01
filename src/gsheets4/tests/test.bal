@@ -14,17 +14,16 @@
 //specific language governing permissions and limitations
 //under the License.
 
-import ballerina/system;
 import ballerina/test;
 
 SpreadsheetConfiguration config = {
     oAuthClientConfig: {
-        accessToken: system:getEnv(""),
+        accessToken: "",
         refreshConfig: {
-            clientId: system:getEnv("CLIENT_ID"),
-            clientSecret: system:getEnv("CLIENT_SECRET"),
+            clientId: "999332401198-m4lqtiu4io7h592of98qmfue8jeqtfan.apps.googleusercontent.com",
+            clientSecret: "BYYXpvBV5IP0cwXwGAz-yHkC",
             refreshUrl: REFRESH_URL,
-            refreshToken: system:getEnv("REFRESH_TOKEN")
+            refreshToken: "1//04OnzYR5qkaK4CgYIARAAGAQSNwF-L9Ir5-rY8fg27kEsRIVvCsIvroPE02mF95A6CDU-LEdGLF4xoEdHOc-tq0DZnjfmkVtLhEo"
         }
     }
 };
@@ -96,7 +95,7 @@ function testAddSheet() {
         Sheet | error addSheetRes = response->addSheet(testSheetName);
         if (addSheetRes is Sheet) {
             testSheetId = <@untainted>addSheetRes.properties.sheetId;
-            test:assertNotEquals(addSheetRes.properties.sheetId, "", msg = "Failed to add a sheet");
+            test:assertNotEquals(addSheetRes.properties.sheetId, "", msg = "Failed to add a new sheet");
         } else {
             test:assertFail(msg = <string>addSheetRes.detail()["message"]);
         }
@@ -114,7 +113,7 @@ function testGetSheets() {
     if (spreadsheetRes is Spreadsheet) {
         Sheet[] | error sheets = spreadsheetRes.getSheets();
         if (sheets is Sheet[]) {
-            test:assertNotEquals(sheets.length(), 0, msg = "Failed to get the sheets");
+            test:assertNotEquals(sheets.length(), 0, msg = "Failed to retrieve the sheets");
             test:assertEquals(sheets[0].parentId, spreadsheetId);
         } else {
             test:assertFail(msg = <string>sheets.detail()["message"]);
@@ -152,7 +151,7 @@ function testRemoveSheet() {
             testSheetId = <@untainted>addSheetRes.properties.sheetId;
             test:assertNotEquals(addSheetRes.properties.sheetId, "", msg = "Failed to remove the sheet");
             error? removeRes = spreadsheetRes->removeSheet(<@untainted>addSheetRes.id);
-            test:assertEquals(removeRes, (), msg = "Fsilrf");
+            test:assertEquals(removeRes, (), msg = "Failed to remove the sheet");
         } else {
             test:assertFail(msg = <string>addSheetRes.detail()["message"]);
         }
@@ -438,76 +437,81 @@ function testCopyTo() {
     }
 }
 
-//@test:Config {
-//    dependsOn: ["testGetCell"]
-//}
-//function testClearCell() {
-//    var spreadsheetRes = spreadsheetClient->openSpreadsheetById(spreadsheetId);
-//    if (spreadsheetRes is Spreadsheet) {
-//        Sheet[] | error sheets = spreadsheetRes.getSheets();
-//        if (sheets is Sheet[]) {
-//            Sheet sheet = sheets[0];
-//            var setRes = sheet->clearCell("A10");
-//            test:assertEquals(setRes, (), msg = "Failed to clear the cell");
-//        }
-//    } else {
-//        test:assertFail(msg = <string>spreadsheetRes.detail()["message"]);
-//    }
-//}
+@test:Config {
+    dependsOn: ["testCopyTo"]
+}
+function testClearCell() {
+    var spreadsheetRes = spreadsheetClient->openSpreadsheetById(spreadsheetId);
+    if (spreadsheetRes is Spreadsheet) {
+        Sheet[] | error sheets = spreadsheetRes.getSheets();
+        if (sheets is Sheet[]) {
+            Sheet sheet = sheets[0];
+            var setRes = sheet->setCell("G1", "TestValue");
+            if (setRes is ()) {
+                var getRes = sheet->getCell("G1");
+                test:assertEquals(getRes, "TestValue", msg = "The set value didn't match");
+            }
+            var clearRes = sheet->clearCell("G1");
+            if (clearRes is ()) {
+                var getClearRes = sheet->getCell("G1");
+                test:assertEquals(getClearRes.toString(), "", msg = "Failed to clear the cell");
+            }
+        }
+    } else {
+        test:assertFail(msg = <string>spreadsheetRes.detail()["message"]);
+    }
+}
 
-//@test:Config {
-//    dependsOn: ["testAddSheet", "testSetRange"]
-//}
-//function testClearRange() {
-//    var spreadsheetRes = spreadsheetClient->openSpreadsheetById(spreadsheetId);
-//    if (spreadsheetRes is Spreadsheet) {
-//        Sheet[] | error sheets = spreadsheetRes.getSheets();
-//        if (sheets is Sheet[]) {
-//            Sheet sheet = sheets[0];
-//            var setRes = sheet->getRange("A1:C5");
-//            if (setRes is Range) {
-//                test:assertEquals(setRes.values, entries, msg = "Fail");
-//            }
-//        }
-//    } else {
-//        test:assertFail(msg = <string>spreadsheetRes.detail()["message"]);
-//    }
-//}
-//
-//@test:Config {
-//    dependsOn: ["testAddSheet", "testSetRange"]
-//}
-//function testClearAll() {
-//    var spreadsheetRes = spreadsheetClient->openSpreadsheetById(spreadsheetId);
-//    if (spreadsheetRes is Spreadsheet) {
-//        Sheet[] | error sheets = spreadsheetRes.getSheets();
-//        if (sheets is Sheet[]) {
-//            Sheet sheet = sheets[0];
-//            var setRes = sheet->getRange("A1:C5");
-//            if (setRes is Range) {
-//                test:assertEquals(setRes.values, entries, msg = "Fail");
-//            }
-//        }
-//    } else {
-//        test:assertFail(msg = <string>spreadsheetRes.detail()["message"]);
-//    }
-//}
-//
-//@test:Config {
-//    dependsOn: ["testAddSheet", "testSetRange"]
-//}
-//function testAppendRow() {
-//    var spreadsheetRes = spreadsheetClient->openSpreadsheetById(spreadsheetId);
-//    if (spreadsheetRes is Spreadsheet) {
-//        Sheet[] | error sheets = spreadsheetRes.getSheets();
-//        if (sheets is Sheet[]) {
-//            Sheet sheet = sheets[0];
-//            var setRes = sheet->getRange("A1:C5");
-//            if (setRes is Range) {
-//                test:assertEquals(setRes.values, entries, msg = "Fail");
-//            }
-//        }
-//    } else {
-//        test:assertFail(msg = <string>spreadsheetRes.detail()["message"]);
-//    }
-//}
+@test:Config {
+    dependsOn: ["testDeleteRows"]
+}
+function testClearRange() {
+    Range setRange = {a1Notation: "A15:D19", values: entries};
+    var spreadsheetRes = spreadsheetClient->openSpreadsheetById(spreadsheetId);
+    if (spreadsheetRes is Spreadsheet) {
+        Sheet[] | error sheets = spreadsheetRes.getSheets();
+        if (sheets is Sheet[]) {
+            Sheet sheet = sheets[0];
+            var setRes = sheet->setRange(setRange);
+            if (setRes is ()) {
+                var getRes = sheet->getRange("A15:D19");
+                if (getRes is Range) {
+                    test:assertEquals(getRes.values.toString(), "Name Score Performance Average Keetz 12 Niro 78 Nisha 98 Kana 86",
+                    msg = "Getting values failed");
+                }
+                var clearRange = sheet->clearRange("A15:D19");
+                if (clearRange is ()) {
+                    var getClear = sheet->getRange("A15:D19");
+                    if (getClear is Range) {
+                        test:assertEquals(getClear.values.toString(), "", msg = "Clearing failed");
+                    }
+                }
+            }
+        }
+    } else {
+        test:assertFail(msg = <string>spreadsheetRes.detail()["message"]);
+    }
+}
+
+@test:Config {
+    dependsOn: ["testClearRange"]
+}
+function testClearAll() {
+    var spreadsheetRes = spreadsheetClient->openSpreadsheetById(spreadsheetId);
+    if (spreadsheetRes is Spreadsheet) {
+        Sheet[] | error sheets = spreadsheetRes.getSheets();
+        if (sheets is Sheet[]) {
+            Sheet sheet = sheets[0];
+            var clearAll = sheet->clearAll();
+            if (clearAll is ()) {
+                var setRes = sheet->getRange("A1:H20");
+                if (setRes is Range) {
+                    test:assertEquals(setRes.values.toString(), "", msg = "Fail");
+                }
+            }
+        }
+    } else {
+        test:assertFail(msg = <string>spreadsheetRes.detail()["message"]);
+    }
+}
+

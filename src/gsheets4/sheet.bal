@@ -15,7 +15,6 @@
 // under the License.
 
 import ballerina/http;
-import ballerina/io;
 
 # Ballerina public API to provide Google Spreadsheet - Sheet related functionality.
 public type Sheet client object {
@@ -50,44 +49,19 @@ public type Sheet client object {
         (string | int | float)[][] values = [];
         string notation = self.name;
         if (a1Notation == EMPTY_STRING) {
-            return error(SPREADSHEET_ERROR_CODE, message = "Invalid range notation");
+            return error(SPREADSHEET_ERROR_CODE, message = "Invalid range");
         }
         notation = notation + EXCLAMATION_MARK + a1Notation;
-        string getSheetValuesPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + VALUES_PATH +
-        notation;
-        var httpResponse = self.httpClient->get(<@untainted>getSheetValuesPath);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                if (statusCode != http:STATUS_OK) {
-                    return setResponseError(jsonResponse);
-                } else {
-                    if (!(jsonResponse.values is error)) {
-                        int i = 0;
-                        json[] jsonValues = <json[]>jsonResponse.values;
-                        foreach json value in jsonValues {
-                            json[] jsonValArray = <json[]>value;
-                            int j = 0;
-                            (string | int | float)[] val = [];
-                            foreach json v in jsonValArray {
-                                val[j] = getConvertedValue(v);
-                                j = j + 1;
-                            }
-                            values[i] = val;
-                            i = i + 1;
-                        }
-                    }
-                    Range range = {a1Notation: a1Notation, values: values};
-                    return range;
-                }
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        string getSheetValuesPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + VALUES_PATH + notation;
+        json | error response = sendRequest(self.httpClient, getSheetValuesPath);
+        if (response is error) {
+            return response;
         } else {
-            return createConnectorError(httpResponse);
+            if (!(response.values is error)) {
+                values = convertToArray(response);
+            }
+            Range range = {a1Notation: a1Notation, values: values};
+            return range;
         }
     }
 
@@ -127,9 +101,8 @@ public type Sheet client object {
             if (jsonResponse is json) {
                 return setResponse(jsonResponse, statusCode);
             } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
+                return error(SPREADSHEET_ERROR_CODE, message = "Error occurred while accessing" 
+                + " the JSON payload of the response");
             }
         } else {
             return createConnectorError(httpResponse);
@@ -144,38 +117,26 @@ public type Sheet client object {
         (int | string | float)[] values = [];
         string a1Notation = self.name + EXCLAMATION_MARK + column + COLON + column;
         string getColumnDataPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + VALUES_PATH + a1Notation;
-        var httpResponse = self.httpClient->get(<@untainted>getColumnDataPath);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                if (statusCode == http:STATUS_OK) {
-                    if (!(jsonResponse.values is error)) {
-                        int i = 0;
-                        json[] jsonValues = <json[]>jsonResponse.values;
-                        foreach json value in jsonValues {
-                            json[] jsonValArray = <json[]>value;
-                            if (jsonValArray.length() > 0) {
-                                values[i] = getConvertedValue(jsonValArray[0]);
-                            } else {
-                                values[i] = EMPTY_STRING;
-                            }
-                            i = i + 1;
-                        }
-                    }
-                    return values;
-                } else {
-                    return setResponseError(jsonResponse);
-                }
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        json | error response = sendRequest(self.httpClient, getColumnDataPath);
+        if (response is error) {
+            return response;
         } else {
-            return createConnectorError(httpResponse);
+            if (!(response.values is error)) {
+                int i = 0;
+                json[] jsonValues = <json[]>response.values;
+                foreach json value in jsonValues {
+                    json[] jsonValArray = <json[]>value;
+                    if (jsonValArray.length() > 0) {
+                        values[i] = getConvertedValue(jsonValArray[0]);
+                    } else {
+                        values[i] = EMPTY_STRING;
+                    }
+                    i = i + 1;
+                }
+            }
+            return values;
         }
-    }
+            }
 
     # Gets the values in the given row of the Sheet.
     #
@@ -185,32 +146,20 @@ public type Sheet client object {
         (int | string | float)[] values = [];
         string a1Notation = self.name + EXCLAMATION_MARK + row.toString() + COLON + row.toString();
         string getRowDataPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + VALUES_PATH + a1Notation;
-        var httpResponse = self.httpClient->get(<@untainted>getRowDataPath);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                if (statusCode == http:STATUS_OK) {
-                    if (!(jsonResponse.values is error)) {
-                        int i = 0;
-                        json[] jsonValues = <json[]>jsonResponse.values;
-                        json[] jsonArray = <json[]>jsonValues[0];
-                        foreach json value in jsonArray {
-                            values[i] = value.toString();
-                            i = i + 1;
-                        }
-                    }
-                    return values;
-                } else {
-                    return setResponseError(jsonResponse);
-                }
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        json | error response = sendRequest(self.httpClient, getRowDataPath);
+        if (response is error) {
+            return response;
         } else {
-            return createConnectorError(httpResponse);
+            if (!(response.values is error)) {
+                int i = 0;
+                json[] jsonValues = <json[]>response.values;
+                json[] jsonArray = <json[]>jsonValues[0];
+                foreach json value in jsonArray {
+                    values[i] = value.toString();
+                    i = i + 1;
+                }
+            }
+            return values;
         }
     }
 
@@ -222,28 +171,16 @@ public type Sheet client object {
         int | string | float value = EMPTY_STRING;
         string notation = self.name + EXCLAMATION_MARK + a1Notation;
         string getCellDataPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + VALUES_PATH + notation;
-        var httpResponse = self.httpClient->get(<@untainted>getCellDataPath);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            json | error jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                if (statusCode == http:STATUS_OK) {
-                    if (!(jsonResponse.values is error)) {
-                        json[] responseValues = <json[]>jsonResponse.values;
-                        json[] firstResponseValue = <json[]>responseValues[0];
-                        value = firstResponseValue[0].toString();
-                    }
-                    return value;
-                } else {
-                    return setResponseError(jsonResponse);
-                }
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        json | error response = sendRequest(self.httpClient, getCellDataPath);
+        if (response is error) {
+            return response;
         } else {
-            return createConnectorError(httpResponse);
+            if (!(response.values is error)) {
+                json[] responseValues = <json[]>response.values;
+                json[] firstResponseValue = <json[]>responseValues[0];
+                value = firstResponseValue[0].toString();
+            }
+            return value;
         }
     }
 
@@ -266,9 +203,8 @@ public type Sheet client object {
             if (jsonResponse is json) {
                 return setResponse(jsonResponse, statusCode);
             } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
+                return error(SPREADSHEET_ERROR_CODE, message = "Error occurred while "
+                + "accessing the JSON payload of the response");
             }
         } else {
             return setResError(httpResponse);
@@ -280,8 +216,7 @@ public type Sheet client object {
     # + name - The new name for the sheet
     # + return - Nil on success, else returns an error
     public remote function rename(string name) returns @tainted error? {
-        http:Request request = new;
-        json sheetJSONPayload = {
+        json payload = {
             "requests": [
                 {
                     "updateSheetProperties": {
@@ -291,31 +226,21 @@ public type Sheet client object {
                 }
             ]
         };
-        request.setJsonPayload(sheetJSONPayload);
         string renamePath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(<@untainted>renamePath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                self.properties.title = name;
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        json | error response = sendRequestWithPayload(self.httpClient, renamePath, payload);
+        if (response is error) {
+            return response;
         } else {
-            return createConnectorError(httpResponse);
+            self.properties.title = name;
+            return ();
         }
     }
 
     # Clears the sheet content and formatting rules.
     #
     # + return - Nil on success, else returns an error
-    public remote function clearAll() returns error? {
-        http:Request request = new;
-        json sheetJSONPayload = {
+    public remote function clearAll() returns @tainted error? {
+        json payload = {
             "requests": [
                 {
                     "updateCells": {
@@ -327,21 +252,12 @@ public type Sheet client object {
                 }
             ]
         };
-        request.setJsonPayload(sheetJSONPayload);
         string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        json | error response = sendRequestWithPayload(self.httpClient, deleteSheetPath, payload);
+        if (response is json) {
+            return;
         } else {
-            return createConnectorError(httpResponse);
+            return response;
         }
     }
 
@@ -349,24 +265,15 @@ public type Sheet client object {
     #
     # + a1Notation - The required range in A1 notation
     # + return - Nil on success, else returns an error
-    public remote function clearRange(string a1Notation) returns error? {
+    public remote function clearRange(string a1Notation) returns @tainted error? {
         string notation = self.name + EXCLAMATION_MARK + a1Notation;
-        http:Request request = new;
         string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + VALUES_PATH +
         notation + CLEAR_REQUEST;
-        var httpResponse = self.httpClient->post(<@untainted>deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        json | error response = sendRequestWithPayload(self.httpClient, deleteSheetPath);
+        if (response is json) {
+            return;
         } else {
-            return createConnectorError(httpResponse);
+            return response;
         }
     }
 
@@ -374,39 +281,8 @@ public type Sheet client object {
     #
     # + a1Notation - The required cell in A1 notation
     # + return - Nil on success, else returns an error
-    public remote function clearCell(string a1Notation) returns error? {
+    public remote function clearCell(string a1Notation) returns @tainted error? {
         return self->clearRange(a1Notation);
-    }
-
-    # Adds a new row with the given values to the bottom of the sheet.
-    #
-    # + values - Array of values of the row to be added
-    # + return - Nil on success, else returns an error
-    public remote function appendRow((int | string | float)[] values) returns @tainted error? {
-        http:Request request = new;
-        string setValuePath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + VALUES_PATH + self.name + APPEND_REQUEST;
-        json[] jsonValues = [];
-        int i = 0;
-        foreach (string | int | float) value in values {
-            jsonValues[i] = value;
-            i = i + 1;
-        }
-        json jsonPayload = {"values": jsonValues};
-        request.setJsonPayload(<@untainted>jsonPayload);
-        var httpResponse = self.httpClient->post(<@untainted>setValuePath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return setResponse(jsonResponse, statusCode);
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
-        } else {
-            return createConnectorError(httpResponse);
-        }
     }
 
     # Copies the Sheet to a given Spreadsheet.
@@ -415,26 +291,15 @@ public type Sheet client object {
     # + return - Nil on success, else returns an error
     public remote function copyTo(Spreadsheet spreadsheet) returns @tainted error? {
         string destinationId = spreadsheet.spreadsheetId;
-        http:Request request = new;
-        json jsonPayload = {"destinationSpreadsheetId": destinationId};
+        json payload = {"destinationSpreadsheetId": destinationId};
         string notation = self.id.toString();
-        string setCellDataPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + SHEETS_PATH + notation +
+        string copyToPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + SHEETS_PATH + notation +
         COPY_TO_REQUEST;
-        io:println(setCellDataPath);
-        io:println(destinationId);
-        request.setJsonPayload(<@untainted>jsonPayload);
-        var httpResponse = self.httpClient->post(<@untainted>setCellDataPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return setResponse(jsonResponse, statusCode);
-            } else {
-                return error(SPREADSHEET_ERROR_CODE, message = "Error occurred while accessing the JSON payload " +
-                                                                    "of the response");
-            }
+        json | error response = sendRequestWithPayload(self.httpClient, copyToPath, payload);
+        if (response is json) {
+            return;
         } else {
-            return setResError(httpResponse);
+            return response;
         }
     }
 
@@ -443,12 +308,10 @@ public type Sheet client object {
     # + column - Starting position of the columns
     # + numberOfColumns - Number of columns from the starting position
     # + return - Nil on success, else returns an error
-    public remote function deleteColumns(int column, int numberOfColumns)
-    returns error? {
+    public remote function deleteColumns(int column, int numberOfColumns) returns @tainted error? {
         int startIndex = column - 1;
         int endIndex = startIndex + numberOfColumns;
-        http:Request request = new;
-        json sheetJSONPayload = {
+        json payload = {
             "requests": [
                 {
                     "deleteDimension": {
@@ -462,21 +325,12 @@ public type Sheet client object {
                 }
             ]
         };
-        request.setJsonPayload(<@untainted>sheetJSONPayload);
-        string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(<@untainted>deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        string deleteColumnsPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
+        json | error response = sendRequestWithPayload(self.httpClient, deleteColumnsPath, payload);
+        if (response is json) {
+            return;
         } else {
-            return createConnectorError(httpResponse);
+            return response;
         }
     }
 
@@ -487,11 +341,10 @@ public type Sheet client object {
     # + row - Starting position of the rows
     # + numberOfRows - Number of row from the starting position
     # + return - Nil on success, else returns an error
-    public remote function deleteRows(int row, int numberOfRows) returns error? {
-        http:Request request = new;
+    public remote function deleteRows(int row, int numberOfRows) returns @tainted error? {
         int startIndex = row - 1;
         int endIndex = startIndex + numberOfRows;
-        json sheetJSONPayload = {
+        json payload = {
             "requests": [
                 {
                     "deleteDimension": {
@@ -505,21 +358,12 @@ public type Sheet client object {
                 }
             ]
         };
-        request.setJsonPayload(<@untainted>sheetJSONPayload);
-        string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(<@untainted>deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        string deleteRowsPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
+        json | error response = sendRequestWithPayload(self.httpClient, deleteRowsPath, payload);
+        if (response is json) {
+            return;
         } else {
-            return createConnectorError(httpResponse);
+            return response;
         }
     }
 
@@ -528,12 +372,10 @@ public type Sheet client object {
     # + index - The position of the column after which the new columns should be added
     # + numberOfColumns - Number of columns to be added
     # + return - Nil on success, else returns an error
-    public remote function addColumnsAfter(int index, int numberOfColumns)
-    returns error? {
+    public remote function addColumnsAfter(int index, int numberOfColumns) returns @tainted error? {
         int startIndex = index;
         int endIndex = startIndex + numberOfColumns;
-        http:Request request = new;
-        json sheetJSONPayload = {
+        json payload = {
             "requests": [
                 {
                     "insertDimension": {
@@ -547,21 +389,12 @@ public type Sheet client object {
                 }
             ]
         };
-        request.setJsonPayload(<@untainted>sheetJSONPayload);
-        string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(<@untainted>deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        string addColumnsPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
+        json | error response = sendRequestWithPayload(self.httpClient, addColumnsPath, payload);
+        if (response is json) {
+            return;
         } else {
-            return createConnectorError(httpResponse);
+            return response;
         }
     }
 
@@ -570,12 +403,10 @@ public type Sheet client object {
     # + index - The position of the column before which the new columns should be added
     # + numberOfColumns - Number of columns to be added
     # + return - Nil on success, else returns an error
-    public remote function addColumnsBefore(int index, int numberOfColumns)
-    returns error? {
+    public remote function addColumnsBefore(int index, int numberOfColumns) returns @tainted error? {
         int startIndex = index - 1;
         int endIndex = startIndex + numberOfColumns;
-        http:Request request = new;
-        json sheetJSONPayload = {
+        json payload = {
             "requests": [
                 {
                     "insertDimension": {
@@ -589,21 +420,12 @@ public type Sheet client object {
                 }
             ]
         };
-        request.setJsonPayload(<@untainted>sheetJSONPayload);
-        string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(<@untainted>deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        string addColumnsPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
+        json | error response = sendRequestWithPayload(self.httpClient, addColumnsPath, payload);
+        if (response is json) {
+            return;
         } else {
-            return createConnectorError(httpResponse);
+            return response;
         }
     }
 
@@ -612,11 +434,10 @@ public type Sheet client object {
     # + index - The position of the row before which the new rows should be added
     # + numberOfRows - The number of rows to be added
     # + return - Nil on success, else returns an error
-    public remote function addRowsBefore(int index, int numberOfRows) returns error? {
+    public remote function addRowsBefore(int index, int numberOfRows) returns @tainted error? {
         int startIndex = index - 1;
         int endIndex = startIndex + numberOfRows;
-        http:Request request = new;
-        json sheetJSONPayload = {
+        json payload = {
             "requests": [
                 {
                     "insertDimension": {
@@ -630,21 +451,12 @@ public type Sheet client object {
                 }
             ]
         };
-        request.setJsonPayload(<@untainted>sheetJSONPayload);
-        string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(<@untainted>deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        string addRowsPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
+        json | error response = sendRequestWithPayload(self.httpClient, addRowsPath, payload);
+        if (response is json) {
+            return;
         } else {
-            return createConnectorError(httpResponse);
+            return response;
         }
     }
 
@@ -653,11 +465,10 @@ public type Sheet client object {
     # + index - The row after which the new rows should be added.
     # + numberOfRows - The number of rows to be added
     # + return - Nil on success, else returns an error
-    public remote function addRowsAfter(int index, int numberOfRows) returns error? {
+    public remote function addRowsAfter(int index, int numberOfRows) returns @tainted error? {
         int startIndex = index;
         int endIndex = startIndex + numberOfRows;
-        http:Request request = new;
-        json sheetJSONPayload = {
+        json payload = {
             "requests": [
                 {
                     "insertDimension": {
@@ -671,21 +482,12 @@ public type Sheet client object {
                 }
             ]
         };
-        request.setJsonPayload(<@untainted>sheetJSONPayload);
-        string deleteSheetPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
-        var httpResponse = self.httpClient->post(<@untainted>deleteSheetPath, request);
-        if (httpResponse is http:Response) {
-            int statusCode = httpResponse.statusCode;
-            var jsonResponse = httpResponse.getJsonPayload();
-            if (jsonResponse is json) {
-                return ();
-            } else {
-                error err = error(SPREADSHEET_ERROR_CODE,
-                message = "Error occurred while accessing the JSON payload of the response");
-                return err;
-            }
+        string addRowsPath = SPREADSHEET_PATH + PATH_SEPARATOR + self.parentId + BATCH_UPDATE_REQUEST;
+        json | error response = sendRequestWithPayload(self.httpClient, addRowsPath, payload);
+        if (response is json) {
+            return;
         } else {
-            return createConnectorError(httpResponse);
+            return response;
         }
     }
 };

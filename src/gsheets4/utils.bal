@@ -30,9 +30,9 @@ function sendRequestWithPayload(http:Client httpClient, string path, json jsonPa
 returns @tainted json | error {
     http:Request httpRequest = new;
     if (jsonPayload != ()) {
-        httpRequest.setJsonPayload(jsonPayload);
+        httpRequest.setJsonPayload(<@untainted>jsonPayload);
     }
-    var httpResponse = httpClient->post(path, httpRequest);
+    var httpResponse = httpClient->post(<@untainted>path, httpRequest);
     if (httpResponse is http:Response) {
         int statusCode = httpResponse.statusCode;
         json | http:ClientError jsonResponse = httpResponse.getJsonPayload();
@@ -51,7 +51,7 @@ returns @tainted json | error {
 }
 
 function sendRequest(http:Client httpClient, string path) returns @tainted json | error {
-    var httpResponse = httpClient->get(path);
+    var httpResponse = httpClient->get(<@untainted>path);
     if (httpResponse is http:Response) {
         int statusCode = httpResponse.statusCode;
         json | http:ClientError jsonResponse = httpResponse.getJsonPayload();
